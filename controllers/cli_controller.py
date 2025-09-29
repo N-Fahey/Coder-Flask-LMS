@@ -1,7 +1,7 @@
 from flask import Blueprint
 
 from init import db
-from models import Student, Teacher, Course
+from models import Student, Teacher, Course, Enrolment
 
 cli_bp = Blueprint('db', __name__)
 
@@ -39,4 +39,18 @@ def seed_tables():
 
     db.session.add_all(courses)
     db.session.commit()
+
+    enrolments = [
+        Enrolment(enrolment_date='2025-09-24', student_id = students[0].id, course_id = courses[3].id),
+        Enrolment(enrolment_date='2025-09-21', student_id = students[1].id, course_id = courses[0].id),
+        Enrolment(enrolment_date='2025-09-15', student_id = students[1].id, course_id = courses[1].id),
+        Enrolment(enrolment_date='2025-09-21', student_id = students[1].id, course_id = courses[2].id),
+        Enrolment(enrolment_date='2025-09-26', student_id = students[0].id, course_id = courses[4].id),
+        Enrolment(student_id = students[0].id, course_id = courses[5].id),
+        Enrolment(student_id = students[0].id, course_id = courses[0].id)
+    ]
+
+    db.session.add_all(enrolments)
+    db.session.commit()
+
     print('Tables seeded.')
