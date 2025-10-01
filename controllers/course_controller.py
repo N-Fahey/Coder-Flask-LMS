@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError, DataError
+from marshmallow import ValidationError
 from psycopg2 import errorcodes
 
 from init import db
@@ -74,32 +75,32 @@ def delete_course(course_id:int):
 
 @courses_bp.route('/<int:course_id>', methods=['PUT', 'PATCH'])
 def update_course(course_id:int):
-    stmt = db.select(Course).where(Course.id == course_id)
-    course = db.session.scalar(stmt)
-    data = course_schema.dump(course)
+    course = db.session.get(Course, course_id)
 
-    if not data:
+    if not course:
         return {'message': f"No course with ID {course_id}"}, 404
     
+    input_data = course_schema.dump(course)
+
     try:
         body = request.get_json()
-
-        course.name = body.get('name', course.name)
-        course.duration = body.get('duration', course.duration)
-        course.teacher_id = body.get('teacher_id', course.teacher_id)
-
+        course = course_schema.load(body, instance=course, session=db.session, partial=True)
         db.session.commit()
 
         return jsonify(course_schema.dump(course))
     
+    except ValidationError as e:
+        return jsonify({'message': f'Invalid input.',
+                        
+                        'errors': e.normalized_messages()}), 400
     except IntegrityError as e:
         match e.orig.pgcode:
             case errorcodes.NOT_NULL_VIOLATION:
                 return jsonify({'message': f"Required field: '{e.orig.diag.column_name}' cannot be null."}), 400
             case errorcodes.UNIQUE_VIOLATION:
-                return jsonify({'message': f"{e.orig.diag.message_detail}", 'input':data}), 409
+                return jsonify({'message': f"{e.orig.diag.message_detail}", 'input':input_data}), 409
             case errorcodes.FOREIGN_KEY_VIOLATION:
-                return jsonify({'message': f"Invalid teacher selected.", 'input':data}), 409
+                return jsonify({'message': f"Invalid teacher selected.", 'input':input_data}), 409
             case _:
                 return jsonify({'message': f"An unexpected IntegrityError occured: {e.detail}"}), 400
     except DataError as e:

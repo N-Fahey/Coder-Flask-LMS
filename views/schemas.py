@@ -1,5 +1,5 @@
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from marshmallow import fields
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
+from marshmallow import fields, validate
 
 from models import Student, Teacher, Course, Enrolment
 
@@ -40,13 +40,21 @@ class CourseSchema(SQLAlchemyAutoSchema):
             'id',
             'name',
             'duration',
-            'teacher_id',
             'teacher',
             'enrolments'
         )
+    
+    name = auto_field(validate=validate.And(
+        validate.Length(min=3, max=50, error='Course must be between 3 & 50 characters.'),
+        validate.Regexp(regex=r"^[A-Z][A-Za-z0-9 ]*$", error='Name must start with a capital letter & contain only: [A-Z][a-z][0-9][space]')
+    ))
 
-    teacher = fields.Nested('TeacherSchema', dump_only=True, exclude=['id', 'courses'])
-    enrolments = fields.List(fields.Nested('EnrolmentSchema', dump_only=True, only=['id', 'enrolment_date', 'student_id', 'student']))
+    duration = auto_field(validate=validate.And(
+        validate.Range(min=1, max=6, error='Duration must be between 1 and 6')
+    ))
+
+    teacher = fields.Nested('TeacherSchema', dump_only=True, exclude=['courses'])
+    enrolments = fields.List(fields.Nested('EnrolmentSchema', dump_only=True, only=['id', 'enrolment_date', 'student']))
 
 class EnrolmentSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -56,14 +64,12 @@ class EnrolmentSchema(SQLAlchemyAutoSchema):
         fields = (
             'id',
             'enrolment_date',
-            'student_id',
             'student',
-            'course_id',
             'course'
         )
     
-    student = fields.Nested('StudentSchema', dump_only=True, only=['name', 'email', 'address'])
-    course = fields.Nested('CourseSchema', dump_only=True, only=['name', 'duration', 'teacher_id', 'teacher'])
+    student = fields.Nested('StudentSchema', dump_only=True, only=['id', 'name', 'email', 'address'])
+    course = fields.Nested('CourseSchema', dump_only=True, only=['id', 'name', 'duration', 'teacher'])
 
 
 student_schema = StudentSchema()
