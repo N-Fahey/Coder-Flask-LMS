@@ -28,6 +28,15 @@ class TeacherSchema(SQLAlchemyAutoSchema):
             'address',
             'courses'
         )
+    
+    department = auto_field(validate=validate.And(
+        validate.OneOf([
+            'IT',
+            'Science',
+            'Business',
+            'Language'
+        ], error='Invalid department supplied')
+    ))
 
     courses = fields.List(fields.Nested('CourseSchema', dump_only=True, exclude=['teacher', 'teacher_id']))
 
@@ -40,8 +49,12 @@ class CourseSchema(SQLAlchemyAutoSchema):
             'id',
             'name',
             'duration',
+            'teacher_id',
             'teacher',
             'enrolments'
+        )
+        load_only = (
+            'teacher_id',
         )
     
     name = auto_field(validate=validate.And(

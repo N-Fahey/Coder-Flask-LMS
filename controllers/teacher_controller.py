@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 from psycopg2 import errorcodes
+from marshmallow import ValidationError
 
 from init import db
 from models import Teacher
@@ -29,8 +30,7 @@ def get_teachers():
 # Get Single Teacher
 @teachers_bp.route('/<int:teacher_id>')
 def get_a_teacher(teacher_id:int):
-    stmt = db.select(Teacher).where(Teacher.id == teacher_id)
-    teacher = db.session.scalar(stmt)
+    teacher = db.session.get(Teacher, teacher_id)
 
     if not teacher:
         return {'message': "No teacher record found."}, 404
@@ -41,47 +41,41 @@ def get_a_teacher(teacher_id:int):
 # Create Single Teacher
 @teachers_bp.route('/', methods=['POST'])
 def create_a_teacher():
-    try:
-        data = request.get_json()
-        new_teacher = Teacher(
-            name = data.get('name'),
-            department = data.get('department'),
-            address = data.get('address')
-        )
-        
-        db.session.add(new_teacher)
-        db.session.commit()
 
-        return_dict = {
-            'message': "New teacher created.",
-            'teacher': teacher_schema.dump(new_teacher)
-        }
-        return jsonify(return_dict), 201
-    
-    except IntegrityError as e:
-        match e.orig.pgcode:
-            case errorcodes.NOT_NULL_VIOLATION:
-                return jsonify({'message': f"Required field: '{e.orig.diag.column_name}' cannot be null."}), 400
-            case _:
-                return jsonify({'message': f"An unexpected database error occured."}), 400
-    
-    except:
-        return jsonify({'message': "An unexpected error occured"}), 500
+    data = request.get_json()
+    new_teacher = teacher_schema.load(data, session=db.session)
+    db.session.add(new_teacher)
+    db.session.commit()
+
+    return_dict = {
+        'message': "New teacher created.",
+        'teacher': teacher_schema.dump(new_teacher)
+    }
+    return jsonify(return_dict), 201
+
 
 # Update Single Teacher
 @teachers_bp.route('/<int:teacher_id>', methods=['PUT', 'PATCH'])
 def update_a_teacher(teacher_id:int):
+    
+    # stmt = db.select(Teacher).where(Teacher.id == teacher_id)
+    # teacher = db.session.scalar(stmt)
+    teacher = db.session.get(Teacher, teacher_id)
+    if not teacher:
+        return {'message': f"Teacher with ID {teacher_id} doesn't exist."}, 400
+    
     try:
-        stmt = db.select(Teacher).where(Teacher.id == teacher_id)
-        teacher = db.session.scalar(stmt)
-        if not teacher:
-            return {'message': f"Teacher with ID {teacher_id} doesn't exist."}, 400
+        body = request.get_json()
 
-        data = request.get_json()
-
-        teacher.name = data.get('name', teacher.name)
-        teacher.department = data.get('department', teacher.department)
-        teacher.address = data.get('address', teacher.address)
+        # teacher.name = data.get('name', teacher.name)
+        # teacher.department = data.get('department', teacher.department)
+        # teacher.address = data.get('address', teacher.address)
+        teacher = teacher_schema.load(
+            data=body,
+            instance=teacher,
+            session=db.session,
+            partial=True
+        )
 
         db.session.commit()
 
@@ -91,7 +85,8 @@ def update_a_teacher(teacher_id:int):
             }
         
         return return_dict
-    
+    except ValidationError as e:
+        return jsonify({'message': "Invalid data supplied", 'error':e.messages}), 400
     except IntegrityError as e:
         match e.orig.pgcode:
             case _:

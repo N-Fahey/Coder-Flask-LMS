@@ -37,26 +37,36 @@ def get_course(course_id:int):
 @courses_bp.route('/', methods=['POST'])
 def create_course():
     try:
-        data = request.get_json()
+        # ----- OLD METHOD ----- #
+        # data = request.get_json()
+        # new_course = Course(name=data.get('name'), duration=data.get('duration'), teacher_id=data.get('teacher_id'))
+        # db.session.add(new_course)
+        # db.session.commit()
+        # return jsonify(course_schema.dump(new_course)), 201
+        body = request.get_json()
 
-        new_course = Course(name=data.get('name'), duration=data.get('duration'), teacher_id=data.get('teacher_id'))
-
+        new_course = course_schema.load(body, session = db.session)
+        
         db.session.add(new_course)
+
         db.session.commit()
 
-        return jsonify(course_schema.dump(new_course)), 201
+        return jsonify(course_schema.dump(new_course))
+    
+    except ValidationError as e:
+        return jsonify({'message': "Validation error occurred", 'errors': e.messages}), 400
     except IntegrityError as e:
         match e.orig.pgcode:
             case errorcodes.NOT_NULL_VIOLATION:
                 return jsonify({'message': f"Required field: '{e.orig.diag.column_name}' cannot be null."}), 400
             case errorcodes.UNIQUE_VIOLATION:
-                return jsonify({'message': f"{e.orig.diag.message_detail}", 'input':data}), 409
+                return jsonify({'message': f"{e.orig.diag.message_detail}", 'input':body}), 409
             case errorcodes.FOREIGN_KEY_VIOLATION:
-                return jsonify({'message': f"Invalid teacher selected.", 'input':data}), 409
+                return jsonify({'message': f"Invalid teacher selected.", 'input':body}), 409
             case _:
                 return jsonify({'message': f"An unexpected data error occured."}), 400
-    except:
-        return jsonify({'message': "An unexpected error occured"}), 500
+    except Exception as e:
+        return jsonify({'message': "An unexpected error occured", 'error': e}), 500
 
 @courses_bp.route('/<int:course_id>', methods=['DELETE'])
 def delete_course(course_id:int):

@@ -67,31 +67,17 @@ def update_enrolment(enrolment_id:int):
     if not data:
         return {'message': f"No enrolment with ID {enrolment_id}"}, 404
     
-    try:
-        body = request.get_json()
 
-        enrolment.student_id = body.get('student_id', enrolment.student_id)
-        enrolment.course_id = body.get('course_id', enrolment.course_id)
-        enrolment.enrolment_date = body.get('enrolment_date', enrolment.enrolment_date)
+    body = request.get_json()
 
-        db.session.commit()
+    enrolment.student_id = body.get('student_id', enrolment.student_id)
+    enrolment.course_id = body.get('course_id', enrolment.course_id)
+    enrolment.enrolment_date = body.get('enrolment_date', enrolment.enrolment_date)
 
-        return jsonify(enrolment_schema.dump(enrolment))
-    
-    except IntegrityError as e:
-        match e.orig.pgcode:
-            case errorcodes.NOT_NULL_VIOLATION:
-                return jsonify({'message': f"Required field: '{e.orig.diag.column_name}' cannot be null."}), 400
-            case errorcodes.UNIQUE_VIOLATION:
-                return jsonify({'message': f"{e.orig.diag.message_detail}", 'input':data}), 409
-            case errorcodes.FOREIGN_KEY_VIOLATION:
-                return jsonify({'message': f"Invalid teacher selected.", 'input':data}), 409
-            case _:
-                return jsonify({'message': f"An unexpected IntegrityError occured: {e.detail}"}), 400
-    except DataError as e:
-        return jsonify({'message': f"An unexpected data error occured: {e}"}), 400
-    except Exception as e:
-        return jsonify({'message': f"An unexpected error occured: {e}"}), 500
+    db.session.commit()
+
+    return jsonify(enrolment_schema.dump(enrolment))
+
 
 @enrolments_bp.route('/<int:enrolment_id>', methods=['DELETE'])
 def delete_enrolment(enrolment_id:int):
