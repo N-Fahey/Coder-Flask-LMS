@@ -1,5 +1,5 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
-from marshmallow import fields, validate
+from marshmallow import fields, validate, validates, ValidationError
 
 from models import Student, Teacher, Course, Enrolment
 
@@ -62,9 +62,12 @@ class CourseSchema(SQLAlchemyAutoSchema):
         validate.Regexp(regex=r"^[A-Z][A-Za-z0-9 ]*$", error='Name must start with a capital letter & contain only: [A-Z][a-z][0-9][space]')
     ))
 
-    duration = auto_field(validate=validate.And(
-        validate.Range(min=1, max=6, error='Duration must be between 1 and 6')
-    ))
+    @validates('duration')
+    def validate_duration(self, duration, data_key):
+        min_range = 1
+        max_range = 6
+        if duration < min_range or duration > max_range:
+            raise ValidationError(f'Duration must be between {min_range} - {max_range}')
 
     teacher = fields.Nested('TeacherSchema', dump_only=True, exclude=['courses'])
     enrolments = fields.List(fields.Nested('EnrolmentSchema', dump_only=True, only=['id', 'enrolment_date', 'student']))
